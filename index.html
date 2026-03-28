@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mini CRM</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      background: #0f172a;
+      color: white;
+      padding: 20px;
+    }
+
+    #crm { display: none; }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+    }
+
+    button {
+      padding: 8px 12px;
+      margin: 5px 3px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .add { background: #22c55e; color: white; }
+    .delete { background: #ef4444; color: white; }
+    .edit { background: #3b82f6; color: white; }
+    .status { background: #f59e0b; color: white; }
+    .logout { background: #64748b; color: white; float: right; }
+
+    ul {
+      margin-top: 20px;
+      list-style: none;
+    }
+
+    li {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info {
+      max-width: 60%;
+    }
+
+    .status-text {
+      font-weight: bold;
+      margin-top: 5px;
+      display: inline-block;
+    }
+
+    .new { color: #3b82f6; }
+    .contacted { color: #f59e0b; }
+    .converted { color: #22c55e; }
+
+    #loginBox {
+      max-width: 300px;
+      margin: 100px auto;
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    #loginBox input {
+      width: 90%;
+    }
+
+  </style>
+</head>
+
+<body>
+
+<!-- 🔐 LOGIN -->
+<div id="loginBox">
+  <h3>Login</h3>
+  <input id="loginEmail" placeholder="Email">
+  <input id="loginPass" type="password" placeholder="Password">
+  <button class="add" onclick="login()">Login</button>
+</div>
+
+<!-- 🚀 CRM -->
+<div id="crm" class="container">
+
+  <button class="logout" onclick="logout()">Logout</button>
+  <h2>🚀 Mini CRM</h2>
+
+  <div class="card">
+    <input id="name" placeholder="Name">
+    <input id="email" placeholder="Email">
+    <input id="source" placeholder="Source">
+    <textarea id="notes" placeholder="Notes"></textarea>
+
+    <button class="add" onclick="addLead()">Add Lead</button>
+  </div>
+
+  <ul id="list"></ul>
+
+</div>
+
+<script>
+const API = "http://127.0.0.1:5000/leads";
+
+// LOGIN
+function login() {
+  const email = document.getElementById("loginEmail").value;
+  const pass = document.getElementById("loginPass").value;
+
+  if (email === "admin@gmail.com" && pass === "1234") {
+    localStorage.setItem("login", "true");
+
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("crm").style.display = "block";
+
+    getLeads();
+  } else {
+    alert("Wrong credentials");
+  }
+}
+
+// AUTO LOGIN
+window.onload = () => {
+  if (localStorage.getItem("login") === "true") {
+    document.getElementById("loginBox").style.display = "none";
+    document.getElementById("crm").style.display = "block";
+    getLeads();
+  }
+};
+
+// LOGOUT
+function logout() {
+  localStorage.removeItem("login");
+  location.reload();
+}
+
+// LOAD
+async function getLeads() {
+  const res = await fetch(API);
+  const data = await res.json();
+
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  data.forEach(l => {
+    const li = document.createElement("li");
+
+    li.innerHTML = `
+      <div class="info">
+        <strong>${l.name}</strong><br>
+        ${l.email}<br>
+        Source: ${l.source || "N/A"}<br>
+        Notes: ${l.notes || "N/A"}<br>
+        <span class="status-text ${l.status}">${l.status}</span>
+      </div>
+
+      <div>
+        <button class="delete" onclick="deleteLead('${l._id}')">❌</button>
+        <button class="status" onclick="changeStatus('${l._id}')">Status</button>
+        <button class="edit" onclick="editLead('${l._id}', '${l.name}', '${l.email}', '${l.source}', '${l.notes}')">Edit</button>
+      </div>
+    `;
+
+    list.appendChild(li);
+  });
+}
+
+// ADD
+async function addLead() {
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const source = document.getElementById("source").value;
+  const notes = document.getElementById("notes").value;
+
+  await fetch(API, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ name, email, source, notes })
+  });
+
+  getLeads();
+}
+
+// DELETE
+async function deleteLead(id) {
+  await fetch(`${API}/${id}`, { method: "DELETE" });
+  getLeads();
+}
+
+// STATUS
+async function changeStatus(id) {
+  await fetch(`${API}/status/${id}`, { method: "PUT" });
+  getLeads();
+}
+
+// EDIT
+function editLead(id, name, email, source, notes) {
+  const newName = prompt("Name", name);
+  const newEmail = prompt("Email", email);
+  const newSource = prompt("Source", source);
+  const newNotes = prompt("Notes", notes);
+
+  updateLead(id, newName, newEmail, newSource, newNotes);
+}
+
+async function updateLead(id, name, email, source, notes) {
+  await fetch(`${API}/${id}`, {
+    method: "PUT",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ name, email, source, notes })
+  });
+
+  getLeads();
+}
+</script>
+
+</body>
+</html>
